@@ -2,6 +2,55 @@
 
 Production-grade Retrieval Augmented Generation platform leveraging Weavnet as the vector store. The system ships with API, embedding microservice, ingestion workers for parallel job execution, and a Next.js UI for end users and admins. Docker Compose orchestrates local development; Helm charts target production rollouts.
 
+## Tech Stack
+
+| Layer            | Technologies                                                                 |
+|------------------|------------------------------------------------------------------------------|
+| Frontend         | Next.js 14 • React 18 • TypeScript • Tailwind-esque custom styling           |
+| API / Orchestration | FastAPI • Pydantic • LangChain • OpenAI compatible LLM endpoints           |
+| Background Work  | Celery 5 • Redis (broker/result store) • Watchdog • Python 3.11              |
+| Vector & Storage | Weaviate 1.24 • PostgreSQL 15 • MinIO (S3-compatible object store)           |
+| Embeddings       | Dedicated Python microservice hitting provider APIs (OpenAI / custom)        |
+| Packaging & Build| Docker/Compose • multi-stage builds • Ruff • pytest                          |
+| Observability    | Prometheus FastAPI instrumentator • OTLP exporters (OTel SDK, Tempo-ready)   |
+
+## High-Level Architecture
+
+```
+                 ┌───────────────────────┐
+                 │        Next.js UI     │
+                 │  (chat, admin, docs)  │
+                 └──────────┬────────────┘
+                            │ HTTPS (
+                            │  REST/SSE
+                    ┌───────▼────────┐
+                    │   FastAPI API   │
+                    │  (LangChain,    │
+                    │   auth, routes) │
+                    └───┬─────┬──────┘
+                        │     │
+            Celery tasks│     │Vector/search
+                        │     │
+          ┌─────────────▼┐   ▼───────────────┐
+          │ Celery Worker│   │   Weaviate     │
+          │ (chunk/embed │   │   Vector DB    │
+          │  ingestion)  │   └──────┬────────┘
+          └──────┬───────┘          │
+                 │ embeddings       │metadata
+                 │                  │
+        ┌────────▼──────┐    ┌──────▼────────┐
+        │ Embedding svc │    │ PostgreSQL DB │
+        │ (provider API │    └───────────────┘
+        │   gateway)    │
+        └──────┬────────┘
+               │
+        ┌──────▼──────┐   ┌──────────────┐
+        │  MinIO S3   │   │ Redis Broker │
+        │ (raw docs)  │   │  & Results   │
+        └─────────────┘   └──────────────┘
+
+```
+
 ## Services
 
 - **API (FastAPI)** - Query endpoints, orchestration with LangChain, SSE streaming.
