@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: rag-shared
+Version: 0.1.0
+Summary: Shared utilities for the RAG system
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: celery>=5.3
+Requires-Dist: pydantic>=2.7
+Requires-Dist: pydantic-settings>=2.2
+Requires-Dist: weaviate-client>=4.5
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: ruff>=0.4; extra == "dev"
+
+# rag-shared
+
+Shared Python utilities for the RAG system.

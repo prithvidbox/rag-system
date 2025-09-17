@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Node / Next.js
+node_modules/
+.next/
+*.log
+
+# Environment
+.env
+.env.*
+
+# Data / temp
+data/
+tmp/
+
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/
+
+# Generated artifacts
+dist/
+build/
+
+# Local commit helper
+TODO_COMMIT_MESSAGE.txt

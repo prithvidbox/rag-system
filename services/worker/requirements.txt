@@ -1,0 +1,9 @@
+celery==5.3.6
+boto3==1.34.121
+pandas==2.2.2
+redis==5.0.4
+rag-shared @ file:///app/packages/rag_shared
+langchain==0.2.7
+requests==2.32.3
+python-dotenv==1.0.1
+watchdog==4.0.0
