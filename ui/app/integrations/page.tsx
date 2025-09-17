@@ -1,8 +1,10 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+import NavBar, { type UserProfile } from '../components/NavBar';
 import { apiFetch, getToken } from '../lib/api';
 
 interface Integration {
@@ -39,6 +41,18 @@ const UPCOMING_TOOLS = [
 
 const SHAREPOINT_TYPE = 'sharepoint';
 
+const formatSince = (value: string) => {
+  const deltaMs = Date.now() - new Date(value).getTime();
+  const minutes = Math.floor(deltaMs / 60000);
+  if (minutes < 1) return 'moments ago';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(value).toLocaleDateString();
+};
+
 export default function IntegrationsPage() {
   const router = useRouter();
   const [integrations, setIntegrations] = useState<Integration[]>([]);
@@ -54,14 +68,33 @@ export default function IntegrationsPage() {
     site_ids: '',
   });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    if (!getToken()) {
+    const token = getToken();
+    if (!token) {
+      setIsAuthenticated(false);
+      setUserProfile(null);
       router.push('/login');
+      setLoading(false);
       return;
     }
 
+    setIsAuthenticated(true);
+
     (async () => {
+      try {
+        const profile = await apiFetch<UserProfile>('/v1/auth/me');
+        setUserProfile(profile);
+      } catch (err) {
+        setIsAuthenticated(false);
+        setUserProfile(null);
+        router.push('/login');
+        setLoading(false);
+        return;
+      }
+
       try {
         const data = await apiFetch<Integration[]>('/v1/integrations');
         setIntegrations(data);
@@ -155,117 +188,160 @@ export default function IntegrationsPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <main className="integration-wrapper">
-        <p className="status-running">Loading integrations…</p>
-      </main>
-    );
-  }
+  const historyItems = sharePointIntegration ? syncs[sharePointIntegration.id] ?? [] : [];
+
+  const handleSignIn = () => {
+    router.push('/login');
+  };
 
   return (
-    <main className="integration-wrapper">
-      <section className="integration-hero">
-        <div>
-          <h1>Integrations</h1>
-          <p>Connect enterprise knowledge systems and manage continuous synchronization.</p>
-        </div>
-      </section>
-
-      {error && <p className="status-error" style={{ marginBottom: '1rem' }}>{error}</p>}
-      {success && <p className="status-success" style={{ marginBottom: '1rem' }}>{success}</p>}
-
-      <section className="integration-grid">
-        <article className="integration-card">
-          <header>
+    <div className="app-wrapper">
+      <NavBar userProfile={userProfile} isAuthenticated={isAuthenticated} onSignIn={handleSignIn} />
+      <div className="app-content">
+        <div className="integration-wrapper">
+          <section className="integration-hero">
             <div>
-              <h2>Microsoft SharePoint</h2>
-              <p>Ingest curated sites, enforce Microsoft 365 permissions, and keep documents fresh.</p>
+              <span className="info-eyebrow">Integrations</span>
+              <h1 className="info-title">Connect enterprise knowledge fabrics</h1>
+              <p className="info-lead">
+                Centralize structured and unstructured content, then keep everything in sync with our zero-trust ingestion engine.
+              </p>
             </div>
-            <span className="badge live">Live</span>
-          </header>
+            <div className="stat-grid" style={{ maxWidth: '320px' }}>
+              <div className="stat-card">
+                <strong>{integrations.length}</strong>
+                Active connectors
+              </div>
+              <div className="stat-card">
+                <strong>{historyItems.length}</strong>
+                Recent sync jobs
+              </div>
+            </div>
+          </section>
 
-          <form onSubmit={handleSubmit} className="integration-form">
-            <div className="form-row">
-              <label>Tenant ID</label>
-              <input
-                value={form.tenant_id}
-                onChange={(event) => setForm((prev) => ({ ...prev, tenant_id: event.target.value }))}
-                placeholder="contoso.onmicrosoft.com"
-                required
-              />
-            </div>
-            <div className="form-row">
-              <label>Client ID</label>
-              <input
-                value={form.client_id}
-                onChange={(event) => setForm((prev) => ({ ...prev, client_id: event.target.value }))}
-                placeholder="Azure app registration client ID"
-                required
-              />
-            </div>
-            <div className="form-row">
-              <label>Client secret</label>
-              <input
-                value={form.client_secret}
-                onChange={(event) => setForm((prev) => ({ ...prev, client_secret: event.target.value }))}
-                placeholder="Stored securely"
-                required
-              />
-            </div>
-            <div className="form-row">
-              <label>Site IDs</label>
-              <textarea
-                placeholder="Comma-separated site IDs"
-                value={form.site_ids}
-                onChange={(event) => setForm((prev) => ({ ...prev, site_ids: event.target.value }))}
-              />
-            </div>
-            <div className="form-actions">
-              <button type="submit">{editingId ? 'Update configuration' : 'Save integration'}</button>
-              {editingId && (
-                <button type="button" className="ghost-button" onClick={() => handleSync(sharePointIntegration!)}>
-                  Sync now
-                </button>
-              )}
-            </div>
-          </form>
+          {error && <p className="status-error">{error}</p>}
+          {success && <p className="status-success">{success}</p>}
 
-          {editingId && (
-            <div className="sync-badges">
-              <h3>Recent sync activity</h3>
-              <div className="sync-list">
-                {(syncs[editingId] ?? []).length === 0 ? (
-                  <p className="conversation-empty">No sync jobs yet.</p>
-                ) : (
-                  (syncs[editingId] ?? []).map((record) => (
-                    <div key={record.id} className={`sync-row status-${record.status}`}>
-                      <div>
-                        <strong>{record.status.toUpperCase()}</strong>
-                        {record.message && <span className="sync-message">{record.message}</span>}
-                      </div>
-                      <span>{new Date(record.updated_at).toLocaleString()}</span>
+          <div className="integration-layout">
+            <article className="integration-card">
+              {loading ? (
+                <p className="status-running">Loading integrations…</p>
+              ) : (
+                <>
+                  <header>
+                    <div>
+                      <h2>Microsoft SharePoint</h2>
+                      <p>Ingest curated sites, mirror Microsoft Entra permissions, and deliver fresh answers.</p>
                     </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </article>
+                    <span className="badge live">Live</span>
+                  </header>
 
-        {UPCOMING_TOOLS.map((tool) => (
-          <article key={tool.name} className="integration-card upcoming">
-            <header>
-              <div>
-                <h2>{tool.name}</h2>
-                <p>{tool.description}</p>
-              </div>
-              <span className="badge upcoming-badge">Coming soon</span>
-            </header>
-            <p className="upcoming-hint">Register interest with your customer success manager to accelerate onboarding.</p>
-          </article>
-        ))}
-      </section>
-    </main>
+                  <form onSubmit={handleSubmit} className="integration-form">
+                    <div className="form-row">
+                      <label htmlFor="tenant">Tenant ID</label>
+                      <input
+                        id="tenant"
+                        value={form.tenant_id}
+                        onChange={(event) => setForm((prev) => ({ ...prev, tenant_id: event.target.value }))}
+                        placeholder="contoso.onmicrosoft.com"
+                        required
+                      />
+                    </div>
+                    <div className="form-row">
+                      <label htmlFor="client">Client ID</label>
+                      <input
+                        id="client"
+                        value={form.client_id}
+                        onChange={(event) => setForm((prev) => ({ ...prev, client_id: event.target.value }))}
+                        placeholder="Azure app registration client ID"
+                        required
+                      />
+                    </div>
+                    <div className="form-row">
+                      <label htmlFor="secret">Client Secret</label>
+                      <input
+                        id="secret"
+                        value={form.client_secret}
+                        onChange={(event) => setForm((prev) => ({ ...prev, client_secret: event.target.value }))}
+                        placeholder="Stored securely"
+                        required
+                      />
+                    </div>
+                    <div className="form-row">
+                      <label htmlFor="sites">Site IDs</label>
+                      <textarea
+                        id="sites"
+                        placeholder="Comma separated site IDs"
+                        value={form.site_ids}
+                        onChange={(event) => setForm((prev) => ({ ...prev, site_ids: event.target.value }))}
+                        rows={3}
+                      />
+                    </div>
+                    <div className="info-actions" style={{ marginTop: 'var(--space-2)' }}>
+                      <button type="submit" className="btn btn-primary" disabled={loading}>
+                        {editingId ? 'Update configuration' : 'Connect SharePoint'}
+                      </button>
+                      {editingId && sharePointIntegration && (
+                        <button type="button" className="btn btn-secondary" onClick={() => handleSync(sharePointIntegration)}>
+                          Trigger sync
+                        </button>
+                      )}
+                    </div>
+                  </form>
+
+                  <footer className="integration-schedule">
+                    <div className="status-indicator status-warning">
+                      <div className="status-dot warning" />
+                      Incremental sync runs every 15 minutes
+                    </div>
+                    <div className="status-indicator status-success">
+                      <div className="status-dot success" />
+                      Permissions mirrored from Microsoft Entra ID
+                    </div>
+                  </footer>
+                </>
+              )}
+            </article>
+
+            <aside className="integration-aside">
+              <section className="integration-aside-card">
+                <div className="insights-section-header">
+                  <h3>Latest syncs</h3>
+                  <Link href="/docs" className="text-sm text-text-tertiary">
+                    API reference
+                  </Link>
+                </div>
+                <div className="integration-history">
+                  {historyItems.length > 0 ? (
+                    historyItems.map((record) => (
+                      <div key={record.id} className="integration-history-item">
+                        <span>{formatSince(record.created_at)}</span>
+                        <span>{record.status}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-text-tertiary">
+                      {loading ? 'Sync jobs will appear once data loads.' : 'Sync jobs will appear here once queued.'}
+                    </p>
+                  )}
+                </div>
+              </section>
+
+              <section className="integration-aside-card">
+                <h3>Upcoming connectors</h3>
+                <div className="upcoming-list">
+                  {UPCOMING_TOOLS.map((tool) => (
+                    <div key={tool.name} className="upcoming-item">
+                      <strong>{tool.name}</strong>
+                      <p>{tool.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -1,7 +1,9 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+
 import { apiFetch, getApiBase, setToken } from '../lib/api';
 
 export default function LoginPage() {
@@ -39,46 +41,85 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="card" style={{ maxWidth: '480px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-        <button type="button" disabled={mode === 'signin'} onClick={() => setMode('signin')}>
-          Sign in
-        </button>
-        <button type="button" disabled={mode === 'signup'} onClick={() => setMode('signup')}>
-          Sign up
-        </button>
+    <div className="auth-page">
+      <div className="auth-illustration">
+        <span className="info-eyebrow">Secure access</span>
+        <h2 className="info-title">Sign in to your workspace</h2>
+        <p className="info-lead">
+          Manage ingestion, monitor sync health, and collaborate with your team across a single retrieval surface. All
+          activity is logged for compliance.
+        </p>
+        <div className="stat-grid" style={{ maxWidth: '320px' }}>
+          <div className="stat-card">
+            <strong>SSO</strong>
+            Entra ID &amp; Okta supported
+          </div>
+          <div className="stat-card">
+            <strong>{getApiBase().replace(/^https?:\/\//, '')}</strong>
+            API base
+          </div>
+        </div>
+        <Link href="/landing" className="cta-secondary">
+          Back to overview
+        </Link>
       </div>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          required
-        />
-        {mode === 'signup' && (
-          <input
-            type="text"
-            placeholder="Display name"
-            value={displayName}
-            onChange={(event) => setDisplayName(event.target.value)}
-          />
-        )}
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          required
-        />
-        <button type="submit" disabled={loading}>
-          {loading ? 'Processing…' : mode === 'signin' ? 'Sign in' : 'Create account'}
-        </button>
-      </form>
-      {error && <p style={{ color: '#f87171', marginTop: '1rem' }}>{error}</p>}
-      <p style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#94a3b8' }}>
-        API base: {getApiBase()}
-      </p>
-    </main>
+
+      <div className="auth-card">
+        <div className="auth-toggle">
+          <button type="button" disabled={mode === 'signin'} onClick={() => setMode('signin')}>
+            Sign in
+          </button>
+          <button type="button" disabled={mode === 'signup'} onClick={() => setMode('signup')}>
+            Create account
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="auth-form">
+          <div className="form-group">
+            <label htmlFor="email">Work email</label>
+            <input
+              id="email"
+              type="email"
+              placeholder="you@company.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
+          </div>
+
+          {mode === 'signup' && (
+            <div className="form-group">
+              <label htmlFor="display">Display name</label>
+              <input
+                id="display"
+                type="text"
+                placeholder="Jane Doe"
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+              />
+            </div>
+          )}
+
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
+          </div>
+
+          <button type="submit" className="btn btn-primary" disabled={loading}>
+            {loading ? 'Processing…' : mode === 'signin' ? 'Sign in' : 'Create account'}
+          </button>
+        </form>
+
+        {error && <p className="status-error">{error}</p>}
+        <p className="auth-footer">Having trouble? Reach out to your workspace administrator.</p>
+      </div>
+    </div>
   );
 }

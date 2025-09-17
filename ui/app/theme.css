@@ -1,0 +1,82 @@
+/* Enterprise Theme System */
+
+/* Light Theme */
+:root[data-theme='light'] {
+  --background: #f9fafb;
+  --surface: #ffffff;
+  --surface-elevated: #f3f4f6;
+  --surface-hover: #e5e7eb;
+  --border: #d1d5db;
+  --border-light: #e5e7eb;
+  --text-primary: #111827;
+  --text-secondary: #374151;
+  --text-tertiary: #6b7280;
+  --text-inverse: #ffffff;
+  --gradient-background: linear-gradient(180deg, #f9fafb 0%, #f3f4f6 100%);
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --accent: #9333ea;
+  --success: #16a34a;
+  --warning: #d97706;
+  --error: #dc2626;
+}
+
+/* Dark Theme */
+:root[data-theme='dark'] {
+  --background: #0f172a;
+  --surface: #1e293b;
+  --surface-elevated: #334155;
+  --surface-hover: #475569;
+  --border: #475569;
+  --border-light: #64748b;
+  --text-primary: #f9fafb;
+  --text-secondary: #e5e7eb;
+  --text-tertiary: #9ca3af;
+  --text-inverse: #111827;
+  --gradient-background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --accent: #a855f7;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error: #ef4444;
+}
+
+/* Shared Enterprise Styles */
+body {
+  background: var(--gradient-background);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+button, input, textarea, select {
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.card, .modal, .sidebar, .chat-container, .insights-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: var(--text-inverse);
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+a, .link {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+a:hover, .link:hover {
+  color: var(--primary-hover);
+  text-decoration: underline;
+}

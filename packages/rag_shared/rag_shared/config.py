@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     ingestion_schedule_interval: int = 300
     ingestion_chunk_size: int = 750
     ingestion_chunk_overlap: int = 100
+    ingestion_embed_batch_size: int = 32
 
     # Permissions / ACL
     enable_permission_filters: bool = True

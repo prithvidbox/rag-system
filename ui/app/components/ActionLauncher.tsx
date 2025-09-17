@@ -58,23 +58,25 @@ export default function ActionLauncher({
   const menuContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!menuOpen) {
-      return;
-    }
+    if (!menuOpen) return;
+    
     const handleClickAway = (event: MouseEvent) => {
       if (!menuContainerRef.current?.contains(event.target as Node)) {
         setMenuOpen(false);
         setConnectorsOpen(false);
       }
     };
+    
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setMenuOpen(false);
         setConnectorsOpen(false);
       }
     };
+    
     document.addEventListener('mousedown', handleClickAway);
     document.addEventListener('keydown', handleEscape);
+    
     return () => {
       document.removeEventListener('mousedown', handleClickAway);
       document.removeEventListener('keydown', handleEscape);
@@ -82,26 +84,26 @@ export default function ActionLauncher({
   }, [menuOpen]);
 
   useEffect(() => {
-    if (!sharepointOpen) {
-      return;
-    }
+    if (!sharepointOpen) return;
+    
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setSharepointOpen(false);
       }
     };
+    
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [sharepointOpen]);
 
   useEffect(() => {
-    if (!sharepointOpen || !userId) {
-      return;
-    }
+    if (!sharepointOpen || !userId) return;
+    
     (async () => {
       try {
         const integrations = await apiFetch<IntegrationResponse[]>('/v1/integrations');
         const existing = integrations.find((item) => item.integration_type === 'sharepoint');
+        
         if (existing) {
           const cfg = existing.config as Record<string, string | string[]>;
           setSharepointForm({
@@ -157,9 +159,7 @@ export default function ActionLauncher({
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
     const normaliseError = (error: unknown): string => {
       if (error instanceof Error) {
@@ -183,10 +183,12 @@ export default function ActionLauncher({
       formData.append('source', 'manual-upload');
       formData.append('metadata', JSON.stringify({ uploaded_by: userId, filename: file.name }));
       formData.append('allowed_principals', JSON.stringify(principals.length > 0 ? principals : ['public']));
+      
       const response = await apiUpload<{ document_id: string; task_id: string; status: string }>(
         '/v1/documents/upload',
         formData,
       );
+      
       onDocumentUploaded({
         documentId: response.document_id,
         taskId: response.task_id,
@@ -231,6 +233,7 @@ export default function ActionLauncher({
 
       const existing = await apiFetch<IntegrationResponse[]>('/v1/integrations');
       const current = existing.find((item) => item.integration_type === 'sharepoint');
+      
       let integration: IntegrationResponse;
       if (current) {
         integration = await apiFetch<IntegrationResponse>(`/v1/integrations/${current.id}`, {
@@ -250,6 +253,7 @@ export default function ActionLauncher({
 
       setSharepointStatus((tested.status as typeof sharepointStatus) || 'available');
       setSharepointMessage(tested.connection_message || 'Connection successful');
+      
       if (onIntegrationSaved) {
         onIntegrationSaved(tested);
       }
@@ -259,6 +263,7 @@ export default function ActionLauncher({
       setSavingIntegration(false);
     }
   };
+
   return (
     <>
       <div className="action-launcher" ref={menuContainerRef}>
@@ -285,203 +290,289 @@ export default function ActionLauncher({
           disabled={uploading}
           aria-haspopup="true"
           aria-expanded={menuOpen}
+          title="Quick actions"
         >
-          <span aria-hidden="true">+</span>
+          <span aria-hidden="true">
+            {uploading ? '⏳' : '+'}
+          </span>
           <span className="sr-only">Open quick actions</span>
         </button>
 
         {menuOpen && (
-          <div className="launcher-menu" role="menu">
+          <div className="launcher-menu animate-fade-in" role="menu">
             <div className="launcher-header">
-              <span className="launcher-label">Bring context</span>
-              <p className="launcher-helper">Attach files or connect data sources to this workspace.</p>
+              <span className="launcher-label">Quick Actions</span>
+              <p className="launcher-helper">
+                Upload documents, connect data sources, or launch AI-powered tools.
+              </p>
             </div>
 
-            <button type="button" className="launcher-item" onClick={handleUploadClick} disabled={uploading} role="menuitem">
-              <span className="launcher-item-icon" aria-hidden="true">📎</span>
-              <span className="launcher-item-text">
-                <span className="launcher-item-title">Add photos & files</span>
-                <span className="launcher-item-sub">
-                  {uploading ? 'Uploading…' : 'Upload documents to your RAG knowledge base'}
-                </span>
+            <button 
+              type="button" 
+              className="launcher-item" 
+              onClick={handleUploadClick} 
+              disabled={uploading} 
+              role="menuitem"
+            >
+              <span className="launcher-item-icon" aria-hidden="true">
+                📎
               </span>
+              <div className="launcher-item-text">
+                <div className="launcher-item-title">Upload Documents</div>
+                <div className="launcher-item-sub">
+                  {uploading ? 'Uploading...' : 'Add files to your knowledge base'}
+                </div>
+              </div>
             </button>
 
-            <button type="button" className="launcher-item" onClick={handleOpenSharepoint} role="menuitem">
-              <span className="launcher-item-icon" aria-hidden="true">🗂️</span>
-              <span className="launcher-item-text">
-                <span className="launcher-item-title">Add from SharePoint</span>
-                <span className="launcher-item-sub">Sync document libraries from Microsoft 365</span>
+            <button 
+              type="button" 
+              className="launcher-item" 
+              onClick={handleOpenSharepoint} 
+              role="menuitem"
+            >
+              <span className="launcher-item-icon" aria-hidden="true">
+                🗂️
               </span>
+              <div className="launcher-item-text">
+                <div className="launcher-item-title">SharePoint Integration</div>
+                <div className="launcher-item-sub">
+                  Sync document libraries from Microsoft 365
+                </div>
+              </div>
             </button>
 
             <div className="launcher-divider" />
 
             <button type="button" className="launcher-item" disabled role="menuitem">
-              <span className="launcher-item-icon" aria-hidden="true">🧠</span>
-              <span className="launcher-item-text">
-                <span className="launcher-item-title">Deep research</span>
-                <span className="launcher-item-sub">Coming soon</span>
+              <span className="launcher-item-icon" aria-hidden="true">
+                🧠
               </span>
+              <div className="launcher-item-text">
+                <div className="launcher-item-title">AI Research Assistant</div>
+                <div className="launcher-item-sub">Coming soon - Deep research capabilities</div>
+              </div>
             </button>
 
             <button type="button" className="launcher-item" disabled role="menuitem">
-              <span className="launcher-item-icon" aria-hidden="true">🎨</span>
-              <span className="launcher-item-text">
-                <span className="launcher-item-title">Create image</span>
-                <span className="launcher-item-sub">Generate visuals from prompts</span>
+              <span className="launcher-item-icon" aria-hidden="true">
+                🎨
               </span>
+              <div className="launcher-item-text">
+                <div className="launcher-item-title">Generate Visuals</div>
+                <div className="launcher-item-sub">Create images and diagrams from text</div>
+              </div>
             </button>
 
             <button type="button" className="launcher-item" disabled role="menuitem">
-              <span className="launcher-item-icon" aria-hidden="true">🤖</span>
-              <span className="launcher-item-text">
-                <span className="launcher-item-title">Agent mode</span>
-                <span className="launcher-item-sub">Automate workflows with custom agents</span>
+              <span className="launcher-item-icon" aria-hidden="true">
+                🤖
               </span>
+              <div className="launcher-item-text">
+                <div className="launcher-item-title">Custom Agents</div>
+                <div className="launcher-item-sub">Automate workflows with AI agents</div>
+              </div>
             </button>
 
-            <div className={`launcher-submenu-container ${connectorsOpen ? 'open' : ''}`}>
-              <button
-                type="button"
-                className={`launcher-item launcher-item--submenu ${connectorsOpen ? 'open' : ''}`}
-                onClick={() => setConnectorsOpen((prev) => !prev)}
-                aria-haspopup="true"
-                aria-expanded={connectorsOpen}
-                role="menuitem"
-              >
-                <span className="launcher-item-icon" aria-hidden="true">🔌</span>
-                <span className="launcher-item-text">
-                  <span className="launcher-item-title">Use connectors</span>
-                  <span className="launcher-item-sub">Connect cloud drives and knowledge apps</span>
-                </span>
-                <span className="launcher-chevron" aria-hidden="true">›</span>
-              </button>
+            <div className="launcher-divider" />
 
-              {connectorsOpen && (
-                <div className="launcher-submenu" role="menu">
-                  <button type="button" className="launcher-submenu-item" disabled>
-                    <span className="launcher-item-icon" aria-hidden="true">📄</span>
-                    <span className="launcher-item-text">
-                      <span className="launcher-item-title">Connect Google Drive</span>
-                      <span className="launcher-item-sub">Coming soon</span>
-                    </span>
-                  </button>
-                  <button type="button" className="launcher-submenu-item" disabled>
-                    <span className="launcher-item-icon" aria-hidden="true">☁️</span>
-                    <span className="launcher-item-text">
-                      <span className="launcher-item-title">Connect OneDrive</span>
-                      <span className="launcher-item-sub">Coming soon</span>
-                    </span>
-                  </button>
-                  <button type="button" className="launcher-submenu-item" disabled>
-                    <span className="launcher-item-icon" aria-hidden="true">📚</span>
-                    <span className="launcher-item-text">
-                      <span className="launcher-item-title">Connect Confluence</span>
-                      <span className="launcher-item-sub">Coming soon</span>
-                    </span>
-                  </button>
-                </div>
-              )}
+            <button 
+              type="button" 
+              className="launcher-item" 
+              role="menuitem"
+            >
+              <span className="launcher-item-icon" aria-hidden="true">
+                📊
+              </span>
+              <div className="launcher-item-text">
+                <div className="launcher-item-title">Analytics Dashboard</div>
+                <div className="launcher-item-sub">View usage insights and trends</div>
+              </div>
+            </button>
+
+            <button 
+              type="button" 
+              className="launcher-item" 
+              role="menuitem"
+            >
+              <span className="launcher-item-icon" aria-hidden="true">
+                🛠️
+              </span>
+              <div className="launcher-item-text">
+                <div className="launcher-item-title">Request Support</div>
+                <div className="launcher-item-sub">Open a support ticket</div>
+              </div>
+            </button>
+
+            <div className="launcher-divider" />
+
+            <div className="launcher-footnote">
+              <div className="launcher-footnote-header">
+                <span aria-hidden="true">🔌</span>
+                <span className="launcher-footnote-title">More Integrations</span>
+              </div>
+              <div className="launcher-footnote-list">
+                <div>• Google Drive (Coming Soon)</div>
+                <div>• OneDrive (Coming Soon)</div>
+                <div>• Confluence (Coming Soon)</div>
+                <div>• Slack (Coming Soon)</div>
+              </div>
             </div>
           </div>
         )}
       </div>
 
       {sharepointOpen && (
-        <div className="modal-backdrop" role="presentation" onClick={handleSharepointClose}>
+        <div className="modal-backdrop animate-fade-in" role="presentation" onClick={handleSharepointClose}>
           <div
-            className="modal sharepoint-modal"
+            className="modal animate-fade-in"
             role="dialog"
             aria-modal="true"
             aria-labelledby="sharepoint-modal-title"
             onClick={(event) => event.stopPropagation()}
+            style={{ maxWidth: '600px' }}
           >
-            <header className="modal-header">
-              <div className="modal-title">
-                <span className="modal-icon" aria-hidden="true">🗂️</span>
+            <div className="modal-header">
+              <div className="integration-header">
+                <div className="integration-icon" aria-hidden="true">🗂️</div>
                 <div>
-                  <h2 id="sharepoint-modal-title">Connect SharePoint</h2>
-                  <p className="modal-subtitle">Authenticate your Microsoft 365 tenant to sync sites into RAG.</p>
+                  <h2 id="sharepoint-modal-title" className="integration-title">
+                    SharePoint Integration
+                  </h2>
+                  <p className="integration-subtitle">
+                    Connect your Microsoft 365 tenant to sync document libraries
+                  </p>
                 </div>
               </div>
-              <button type="button" className="ghost-button" onClick={handleSharepointClose}>
-                Close
+              <button type="button" className="btn btn-ghost btn-sm" onClick={handleSharepointClose}>
+                ✕
               </button>
-            </header>
+            </div>
 
-            <section className="modal-status">
-              <span className={`status-dot status-${sharepointStatus}`} />
-              <div>
-                <strong>
-                  {sharepointStatus === 'live'
-                    ? 'Live connection'
-                    : sharepointStatus === 'syncing'
-                    ? 'Sync in progress'
-                    : sharepointStatus === 'unreachable'
-                    ? 'Connection failed'
-                    : 'Ready to connect'}
-                </strong>
-                <p>{sharepointMessage}</p>
+            <div className="modal-body">
+              <div className="integration-status-banner">
+                <div
+                  className={`integration-status-indicator ${
+                    sharepointStatus === 'live'
+                      ? 'indicator-live'
+                      : sharepointStatus === 'syncing'
+                        ? 'indicator-syncing'
+                        : sharepointStatus === 'unreachable'
+                          ? 'indicator-error'
+                          : 'indicator-idle'
+                  }`}
+                />
+                <div>
+                  <div className="integration-status-title">
+                    {sharepointStatus === 'live' ? 'Connected & Syncing' :
+                     sharepointStatus === 'syncing' ? 'Sync in Progress' :
+                     sharepointStatus === 'unreachable' ? 'Connection Failed' :
+                     'Ready to Connect'}
+                  </div>
+                  <div className="integration-status-message">
+                    {sharepointMessage}
+                  </div>
+                </div>
               </div>
-            </section>
 
-            <form onSubmit={handleSharepointSubmit} className="modal-form">
-              <div className="modal-grid">
-                <div className="form-row">
-                  <label htmlFor="sharepoint-tenant">Tenant ID</label>
-                  <input
-                    id="sharepoint-tenant"
-                    value={sharepointForm.tenant_id}
-                    onChange={(event) => setSharepointForm((prev) => ({ ...prev, tenant_id: event.target.value }))}
-                    placeholder="contoso.onmicrosoft.com"
-                    required
-                  />
+              <form onSubmit={handleSharepointSubmit} className="integration-form">
+                <div className="integration-form-grid">
+                  <div>
+                    <label htmlFor="sharepoint-tenant" className="form-label">
+                      Tenant ID
+                    </label>
+                    <input
+                      id="sharepoint-tenant"
+                      value={sharepointForm.tenant_id}
+                      onChange={(event) => setSharepointForm((prev) => ({ ...prev, tenant_id: event.target.value }))}
+                      placeholder="contoso.onmicrosoft.com"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="sharepoint-client" className="form-label">
+                      Client ID
+                    </label>
+                    <input
+                      id="sharepoint-client"
+                      value={sharepointForm.client_id}
+                      onChange={(event) => setSharepointForm((prev) => ({ ...prev, client_id: event.target.value }))}
+                      placeholder="Azure app registration client ID"
+                      required
+                    />
+                  </div>
                 </div>
-                <div className="form-row">
-                  <label htmlFor="sharepoint-client">Client ID</label>
-                  <input
-                    id="sharepoint-client"
-                    value={sharepointForm.client_id}
-                    onChange={(event) => setSharepointForm((prev) => ({ ...prev, client_id: event.target.value }))}
-                    placeholder="Azure app registration client ID"
-                    required
-                  />
-                </div>
-                <div className="form-row">
-                  <label htmlFor="sharepoint-secret">Client secret</label>
+
+                <div>
+                  <label htmlFor="sharepoint-secret" className="form-label">
+                    Client Secret
+                  </label>
                   <input
                     id="sharepoint-secret"
+                    type="password"
                     value={sharepointForm.client_secret}
                     onChange={(event) => setSharepointForm((prev) => ({ ...prev, client_secret: event.target.value }))}
-                    placeholder="Stored securely"
+                    placeholder="Client secret (stored securely)"
                     required
                   />
                 </div>
-                <div className="form-row form-row--full">
-                  <label htmlFor="sharepoint-sites">Site IDs</label>
+
+                <div>
+                  <label htmlFor="sharepoint-sites" className="form-label">
+                    Site IDs
+                  </label>
                   <textarea
                     id="sharepoint-sites"
-                    placeholder="Comma-separated site IDs"
+                    placeholder="Comma-separated SharePoint site IDs to sync"
                     value={sharepointForm.site_ids}
                     onChange={(event) => setSharepointForm((prev) => ({ ...prev, site_ids: event.target.value }))}
+                    rows={3}
                   />
                 </div>
-              </div>
 
-              <div className="modal-hint">
-                Need help? Provide the tenant and application credentials created in the Microsoft Entra admin center.
-              </div>
+                <div className="integration-hint">
+                  <div className="integration-hint-content">
+                    <span className="integration-hint-icon" aria-hidden="true">💡</span>
+                    <div className="integration-hint-copy">
+                      <div className="integration-hint-title">Setup Instructions</div>
+                      <div className="integration-hint-list">
+                        <div>1. Create an app registration in Microsoft Entra admin center</div>
+                        <div>2. Grant Sites.Read.All and Files.Read.All permissions</div>
+                        <div>3. Generate a client secret and copy the values above</div>
+                        <div>4. Find your site IDs from SharePoint admin center</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
 
-              <div className="modal-actions">
-                <button type="submit" disabled={savingIntegration}>
-                  {savingIntegration ? 'Testing connection…' : 'Save & test connection'}
-                </button>
-                <button type="button" className="ghost-button" onClick={handleSharepointClose}>
-                  Cancel
-                </button>
-              </div>
-            </form>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-ghost" onClick={handleSharepointClose}>
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-primary"
+                disabled={savingIntegration}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleSharepointSubmit(e as any);
+                }}
+              >
+                {savingIntegration ? (
+                  <>
+                    <span className="animate-pulse">⏳</span>
+                    Testing Connection...
+                  </>
+                ) : (
+                  <>
+                    <span>🔗</span>
+                    Save & Test Connection
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

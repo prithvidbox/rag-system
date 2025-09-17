@@ -37,16 +37,19 @@ def _resolve_chunk_params(chunk_size: int | None = None, overlap: int | None = N
 def chunk_text(text: str, chunk_size: int | None = None, overlap: int | None = None) -> List[str]:
     chunk_size, overlap = _resolve_chunk_params(chunk_size, overlap)
     words = text.split()
+    if not words:
+        return []
+
+    step = max(chunk_size - overlap, 1)
     chunks: List[str] = []
-    start = 0
-    while start < len(words):
-        end = min(len(words), start + chunk_size)
+    for start in range(0, len(words), step):
+        end = start + chunk_size
         chunk_words = words[start:end]
-        chunk = " ".join(chunk_words)
-        chunks.append(chunk)
-        start = end - overlap
-        if start < 0:
-            start = 0
+        if not chunk_words:
+            break
+        chunks.append(" ".join(chunk_words))
+        if end >= len(words):
+            break
     return chunks
 
 
@@ -56,6 +59,38 @@ def embed_chunks(chunks: List[str]) -> List[List[float]]:
     response.raise_for_status()
     data = response.json()
     return data["embeddings"]
+
+
+def delete_existing_document_chunks(document_id: str) -> int:
+    """Delete existing chunks for a document to prevent duplication."""
+
+    where_filter = {
+        "path": ["document_id"],
+        "operator": "Equal",
+        "valueText": document_id,
+    }
+
+    try:
+        response = client.batch.delete_objects(
+            class_name=settings.weaviate_index,
+            where=where_filter,
+            dry_run=False,
+            output="minimal",
+        )
+        # Response may be dict-like; default to zero if structure changes
+        results = getattr(response, "results", None) or {}
+        successful = results.get("successful", 0)
+        logger.info(
+            "removed existing document chunks",
+            extra={"document_id": document_id, "removed": successful},
+        )
+        return successful
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning(
+            "failed to prune existing document chunks",
+            extra={"document_id": document_id, "error": str(exc)},
+        )
+        return 0
 
 
 def upsert_chunks(chunks: List[DocumentChunk], vectors: List[List[float]]) -> None:
@@ -92,44 +127,96 @@ def ingest_document(
     principals = allowed_principals or [settings.default_public_principal]
     logger.info("ingesting document", extra={"document_id": document_id, "source": source})
 
+    deleted = delete_existing_document_chunks(document_id)
+    if deleted:
+        logger.info(
+            "deduplicated document before ingestion",
+            extra={"document_id": document_id, "removed_chunks": deleted},
+        )
+
     self.update_state(state="STARTED", meta={"stage": "chunking", "document_id": document_id})
 
     raw_chunks = chunk_text(text)
-    document_chunks: List[DocumentChunk] = []
-    for chunk in raw_chunks:
-        chunk_id = str(uuid.uuid4())
-        chunk_metadata = {"document_id": document_id, **metadata}
-        document_chunks.append(
-            DocumentChunk(
-                id=chunk_id,
-                text=chunk,
-                source=source,
-                document_id=document_id,
-                metadata=chunk_metadata,
-                allowed_principals=principals,
-            )
-        )
-    self.update_state(
-        state="PROCESSING",
-        meta={
-            "stage": "embedding",
+    total_chunks = len(raw_chunks)
+    batch_size = max(1, settings.ingestion_embed_batch_size)
+    base_metadata = {"document_id": document_id, **metadata}
+    logger.info(
+        "chunked document",
+        extra={
             "document_id": document_id,
-            "chunks": len(document_chunks),
+            "chunks": total_chunks,
+            "batch_size": batch_size,
         },
     )
 
-    vectors = embed_chunks([chunk.text for chunk in document_chunks])
     self.update_state(
         state="PROCESSING",
         meta={
-            "stage": "indexing",
+            "stage": "chunking",
             "document_id": document_id,
-            "chunks": len(document_chunks),
+            "chunks": total_chunks,
         },
     )
-    upsert_chunks(document_chunks, vectors)
-    self.update_state(state="PROCESSING", meta={"stage": "finalizing", "document_id": document_id})
-    logger.info("ingestion complete", extra={"document_id": document_id, "chunks": len(document_chunks)})
+
+    processed = 0
+    for batch_start in range(0, total_chunks, batch_size):
+        batch_raw_chunks = raw_chunks[batch_start : batch_start + batch_size]
+
+        document_chunks: List[DocumentChunk] = []
+        for index, chunk in enumerate(batch_raw_chunks):
+            chunk_id = str(uuid.uuid4())
+            chunk_metadata = base_metadata.copy()
+            chunk_metadata["chunk_index"] = processed + index
+            document_chunks.append(
+                DocumentChunk(
+                    id=chunk_id,
+                    text=chunk,
+                    source=source,
+                    document_id=document_id,
+                    metadata=chunk_metadata,
+                    allowed_principals=principals,
+                )
+            )
+
+        self.update_state(
+            state="PROCESSING",
+            meta={
+                "stage": "embedding",
+                "document_id": document_id,
+                "chunks": total_chunks,
+                "processed": processed,
+            },
+        )
+
+        vectors = embed_chunks([chunk.text for chunk in document_chunks])
+
+        self.update_state(
+            state="PROCESSING",
+            meta={
+                "stage": "indexing",
+                "document_id": document_id,
+                "chunks": total_chunks,
+                "processed": processed + len(document_chunks),
+            },
+        )
+
+        upsert_chunks(document_chunks, vectors)
+        processed += len(document_chunks)
+        del document_chunks
+        del vectors
+
+    raw_chunks.clear()
+    del raw_chunks
+    self.update_state(
+        state="PROCESSING",
+        meta={
+            "stage": "finalizing",
+            "document_id": document_id,
+            "chunks": total_chunks,
+            "processed": processed,
+        },
+    )
+    logger.info("ingestion complete", extra={"document_id": document_id, "chunks": processed})
     return {"document_id": document_id, "stage": "completed"}
 
 
